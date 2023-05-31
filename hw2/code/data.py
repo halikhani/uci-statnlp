@@ -169,7 +169,6 @@ def print_table(table, row_names, col_names, latex_file=None):
     """
     try:
         from tabulate import tabulate
-
         rows = list(map(lambda rt: [rt[0]] + rt[1], zip(row_names, table.tolist())))
 
         # compute avg in domain perplexity and add to table
@@ -181,6 +180,7 @@ def print_table(table, row_names, col_names, latex_file=None):
         print(tabulate(rows, headers=[""] + col_names))
         if latex_file is not None:
             latex_str = tabulate(rows, headers=[""] + col_names, tablefmt="latex")
+            print(latex_str)
             with open(latex_file, "w") as f:
                 f.write(latex_str)
                 f.close()

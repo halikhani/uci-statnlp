@@ -260,7 +260,6 @@ def top_k_sampling(
 
         # Get probabilities for all the last decoded IDs
         last_id_probs = [cand.last_id_prob for cand in potential_cands]
-
         # ---------------------------------------------------------------------
         # TODO: finish implementing this part of the while loop to complete
         # ---------------------------------------------------------------------
@@ -269,12 +268,18 @@ def top_k_sampling(
         #   * Scale `last_id_probs` via temperature-scaling via the
         #  ``temperature`` parameter
         # ---------------------------------------------------------------------
-        raise NotImplementedError("TODO: Implement by student")
+        scaled_probs = []
+        for i, p in enumerate(last_id_probs):
+            if i >= max_length:
+                scaled_probs.append(0)
+            else:
+                scaled_probs.append(p**(1/temperature))
+        # raise NotImplementedError("TODO: Implement by student")
 
         # ---------------------------------------------------------------------
         # Sample a candidate based on the probability of it's last ID
         # random.choices() automatically re-weights the probabilities!
-        cand = random.choices(potential_cands, weights=last_id_probs)[0]
+        cand = random.choices(potential_cands, weights=scaled_probs)[0]
 
     return cand
 
@@ -306,7 +311,6 @@ def nucleus_sampling(
 
     cand = Candidate(decoded_ids=decoded_ids)
     eos_id = model.EOS_TOKEN_ID
-
     # Continue decoding while the number of decoded IDs of the candidate is
     # less than the max length and while the EOS ID has not been generated.
     while not is_cand_finished(cand, max_length, eos_id):
@@ -331,13 +335,27 @@ def nucleus_sampling(
         #  * Update `potential_cands` and `last_id_probs` by truncating
         #    everything past this cutoff point.
         # ---------------------------------------------------------------------
-        raise NotImplementedError("TODO: Implement by student")
-
+        
+        scaled_probs = []
+        cum_p = 0
+        for i, p in enumerate(last_id_probs):
+            if i >= max_length:
+                scaled_probs.append(0)
+            else:
+                cum_p += p
+                if cum_p <= top_p:
+                    scaled_probs.append(p)
+                else:
+                    scaled_probs.append(0)
+        
+        # raise NotImplementedError("TODO: Implement by student")
+        # print(last_id_probs[:10])
         # ---------------------------------------------------------------------
         #  We have implemented the part of sampling the next candidate given
         #  the truncated `potential_cands` and `last_id_probs` so you
         #  shouldn't touch this part of the code.
-        cand = random.choices(potential_cands, weights=last_id_probs)[0]
+        # print(len(scaled_probs))
+        cand = random.choices(potential_cands, weights=scaled_probs)[0]
 
     return cand
 
@@ -387,13 +405,24 @@ def constrained_decoding(
         #   * Sort by the log probability of the remaining options and name it
         #     potential_cands.
         # ---------------------------------------------------------------------
-        raise NotImplementedError("TODO: Implement by student")
+        
+        potential_cands = cand.get_next_cands(model)
+        potential_cands = sorted(
+            potential_cands, key=lambda x: x.last_id_prob, reverse=True
+        )
+        constraints_list_id = [model.word2id(c) for c in constraints_list]
+        new_cands = []
+        for pc in potential_cands:
+            if pc.last_decoded_id in constraints_list_id:
+                continue
+            else:
+                new_cands.append(pc)
+        last_id_probs = [cand.last_id_prob for cand in new_cands]
+        sum_prob = sum(last_id_probs)
+        last_id_logprobs = [c/sum_prob for c in last_id_probs]
 
-        # ---------------------------------------------------------------------
-        #  We have implemented the part of sampling the next candidate given
-        #  the truncated `potential_cands` and `last_id_probs` so you
-        #  shouldn't touch this part of the code.
-        cand = random.choices(potential_cands, weights=last_id_probs)[0]
+        
+        cand = random.choices(new_cands, weights=last_id_probs)[0]
     return cand
 
 
@@ -439,13 +468,27 @@ def constrained_decoding_no_repetition(
         #   * Sort by the log probability of the remaining options and name it
         #     potential_cands.
         # ---------------------------------------------------------------------
-        raise NotImplementedError("TODO: Implement by student")
+        # raise NotImplementedError("TODO: Implement by student")
 
         # ---------------------------------------------------------------------
         #  We have implemented the part of sampling the next candidate given
         #  the truncated `potential_cands` and `last_id_probs` so you
         #  shouldn't touch this part of the code.
-        cand = random.choices(potential_cands, weights=last_id_probs)[0]
+        potential_cands = cand.get_next_cands(model)
+        potential_cands = sorted(
+            potential_cands, key=lambda x: x.last_id_prob, reverse=True
+        )
+
+        new_cands = []
+        for pc in potential_cands:
+            if pc.last_decoded_id in cand.decoded_ids:
+                continue
+            else:
+                new_cands.append(pc)
+        last_id_probs = [c.last_id_prob for c in new_cands]
+        sum_prob = sum(last_id_probs)
+        last_id_logprobs = [c/sum_prob for c in last_id_probs]
+        cand = random.choices(new_cands, weights=last_id_probs)[0]
     return cand
 
 
@@ -476,7 +519,7 @@ def generate_sentence(
     elif decoder == DECODERS.NUCLEUS:
         top_candidate = nucleus_sampling(
             model=model,
-            top_p=0.2,
+            top_p=1,
             max_length=max_length,
             **decoder_kwargs,
         )

@@ -1,5 +1,5 @@
 from lm import LangModel
-from ngram import Ngram
+from ngram import Ngram, add_lambda_smoothing
 from typing import List
 
 import numpy as np
@@ -37,8 +37,34 @@ class InterpNgram(LangModel):
 
     def cond_logprob(self, word: str, context: List[str]) -> float:
         context = self.model.get_context(context)
-
         logprob = 0
+        
+        lm_model = self.model
+        if self.ngram_size == 1:
+            if lm_model.counts.get(context) is None:
+                logprob = add_lambda_smoothing(lm_model.unigram_counts.get(word, 0), lm_model.unigram_total, lm_model.llambda, lm_model.vocab_size)
+            else:
+                logprob = add_lambda_smoothing(lm_model.counts.get(context).get(word, 0), lm_model.counts_totals.get(context, 0), lm_model.llambda, lm_model.vocab_size)  
+            return logprob
+        
+        elif self.ngram_size == 2:
+            if lm_model.counts.get(context) is None:
+                p = self.backoff_model.cond_logprob(word, context)
+                return p
+            else:
+                p1 = add_lambda_smoothing(lm_model.counts.get(context).get(word, 0), lm_model.counts_totals.get(context, 0), lm_model.llambda, lm_model.vocab_size)
+                p2 = self.backoff_model.cond_logprob(word, context)
+                return np.logaddexp((np.log(self.alpha)) + p1, (np.log( 1 - self.alpha)) + p2)
+        else:
+            # ngram >= 3
+            if lm_model.counts.get(context) is None:
+                p1 = -np.inf
+                p2 = self.backoff_model.cond_logprob(word, context)
+                return p2
+            else:
+                p1 = add_lambda_smoothing(lm_model.counts.get(context).get(word, 0), lm_model.counts_totals.get(context, 0), lm_model.llambda, lm_model.vocab_size)
+                p2 = self.backoff_model.cond_logprob(word, context)
+                return np.logaddexp((np.log(self.alpha)) + p1, (np.log( 1 - self.alpha)) + p2)
         # ---------------------------------------------------------------------
         # TODO: finish implementing this part to complete
         # ---------------------------------------------------------------------
@@ -59,6 +85,6 @@ class InterpNgram(LangModel):
         # the log again, a more stable operation is to apply logsumexp or, in
         # numpy, the `np.logaddexp`.
         # ---------------------------------------------------------------------
-        raise NotImplementedError("TO BE IMPLEMENTED BY THE STUDENT")
+        # raise NotImplementedError("TO BE IMPLEMENTED BY THE STUDENT")
         # ---------------------------------------------------------------------
         return logprob

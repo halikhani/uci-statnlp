@@ -14,7 +14,7 @@ BASE_DIR = ".."
 
 def parse_args():
     # ------------------------------------------------------------------------------
-    # note on specifying neural model filepath
+    # note on specifying neural model filepa_reth
     # If you've used the provided code to store the neural model you'll notice that
     # you won't find any model_path named "../results/neural/brown/neural.pkl
     # but instead you have a base path: ../results/neural/brown/neural__base.pkl

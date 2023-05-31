@@ -82,8 +82,12 @@ class Ngram(LangModel):
         """
         # Collect the relevant part of the sentence given the ngram model
         context = self.get_context(context)
-
         logprob = 0
+
+        if self.counts.get(context) is None:
+            logprob = add_lambda_smoothing(self.unigram_counts.get(word, 0), self.unigram_total, self.llambda, self.vocab_size)
+        else:
+            logprob = add_lambda_smoothing(self.counts.get(context).get(word, 0), self.counts_totals.get(context, 0), self.llambda, self.vocab_size)
         # --------------------------------------------------------------
         # TODO: finish implementing this part to complete
         # --------------------------------------------------------------
@@ -98,6 +102,6 @@ class Ngram(LangModel):
         #  * For the case where `context` was seen during training,
         #    compute the probability, p_model(word|context).
         # --------------------------------------------------------------
-        raise NotImplementedError("TO BE IMPLEMENTED BY THE STUDENT")
+        # raise NotImplementedError("TO BE IMPLEMENTED BY THE STUDENT")
         # --------------------------------------------------------------
         return logprob
